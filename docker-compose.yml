@@ -1,0 +1,40 @@
+# ShopSecure v1 - deliberately weak. Do NOT deploy anywhere real.
+services:
+  gateway:
+    build: ./app/gateway
+    ports:
+      - "18080:80"
+    depends_on:
+      - orders-api
+
+  orders-api:
+    build: ./app/orders-api
+    environment:
+      DB_HOST: db
+      DB_NAME: shop
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PAYMENTS_URL: http://payments-svc:8002
+    depends_on:
+      db:
+        condition: service_healthy
+      payments-svc:
+        condition: service_started
+
+  payments-svc:
+    build: ./app/payments-svc
+    ports:
+      - "18002:8002"
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shop
+    volumes:
+      - ./app/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shop"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
